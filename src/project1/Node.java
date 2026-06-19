@@ -1,14 +1,14 @@
 package project1;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * Board state: queens[col] = row (one queen per column guaranteed).
  * Heuristic: number of attacking pairs across rows and both diagonals.
- * Child heuristics are computed with O(1) incremental updates from the parent.
+ *
+ * Nodes are immutable value holders for the initial and goal states only;
+ * the IDA* search itself runs over a single mutable board (see IDA) and
+ * never allocates intermediate Nodes.
  */
-public class Node implements Comparable<Node> {
+public class Node {
 
     final int[] queens;
     final int g;
@@ -24,7 +24,7 @@ public class Node implements Comparable<Node> {
         this.f = g + h;
     }
 
-    // Package-private: used by nextStates() for O(1) child heuristic.
+    // Package-private: used by IDA to build the goal node with a known heuristic.
     Node(int[] queens, int g, int h) {
         this.queens = queens;
         this.n = queens.length;
@@ -62,57 +62,6 @@ public class Node implements Comparable<Node> {
         return total;
     }
 
-    List<Node> nextStates() {
-        // Build conflict-count arrays for this state once — O(n).
-        int[] rowCnt = new int[n];
-        int[] d1    = new int[2 * n];
-        int[] d2    = new int[2 * n];
-        for (int c = 0; c < n; c++) {
-            int r = queens[c];
-            rowCnt[r]++;
-            d1[r + c]++;
-            d2[r - c + n]++;
-        }
-
-        List<Node> children = new ArrayList<>(n * (n - 1));
-        int childG = g + 1;
-
-        for (int col = 0; col < n; col++) {
-            int oldRow = queens[col];
-
-            // Pairs that involve the queen at (col, oldRow).
-            int removedPairs = (rowCnt[oldRow] - 1)
-                             + (d1[oldRow + col] - 1)
-                             + (d2[oldRow - col + n] - 1);
-            int hBase = h - removedPairs;
-
-            // Temporarily remove this queen from the tracking arrays.
-            rowCnt[oldRow]--;
-            d1[oldRow + col]--;
-            d2[oldRow - col + n]--;
-
-            for (int newRow = 0; newRow < n; newRow++) {
-                if (newRow == oldRow) continue;
-
-                // Pairs added by placing queen at (col, newRow).
-                int addedPairs = rowCnt[newRow]
-                               + d1[newRow + col]
-                               + d2[newRow - col + n];
-
-                int[] childQueens = queens.clone();
-                childQueens[col] = newRow;
-                children.add(new Node(childQueens, childG, hBase + addedPairs));
-            }
-
-            // Restore.
-            rowCnt[oldRow]++;
-            d1[oldRow + col]++;
-            d2[oldRow - col + n]++;
-        }
-
-        return children;
-    }
-
     int[][] toMatrix() {
         int[][] m = new int[n][n];
         for (int c = 0; c < n; c++) {
@@ -131,11 +80,6 @@ public class Node implements Comparable<Node> {
             sb.append('\n');
         }
         return sb.toString();
-    }
-
-    @Override
-    public int compareTo(Node o) {
-        return Integer.compare(this.f, o.f);
     }
 
     @Override

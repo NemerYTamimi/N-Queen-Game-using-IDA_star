@@ -49,22 +49,24 @@ Board state is encoded as `int[] stateArray` of length n, where `stateArray[col]
 
 **`Node` cost functions:**
 - `g` — path cost (depth from initial state, i.e., number of moves)
-- `h` — heuristic: for each queen, count conflicts in the same row and on both diagonals (sums row conflicts + right-to-left diagonal conflicts + left-to-right diagonal conflicts)
+- `h` — heuristic: number of attacking pairs of queens across rows and both diagonals (an admissible lower bound), computed by `Node.computeH` via per-row/diagonal counts and the `C(k,2)` pairs formula
 - `f = g + h`
 
-**`Node.nextStates()`** generates all children by moving each queen to every other row in its column (n×(n-1) children total), each as a new `Node`.
+`Node` is an immutable value holder used only for the initial and goal states. The search itself does **not** build a `Node` per state — see below.
 
 ### IDA* Algorithm (`IDA.java`)
 
-- `threshold` is initialized to the minimum `h` among the initial node's children.
-- Each call to `ida(node)` explores children with `f ≤ threshold`; tracks the minimum f-value seen above the threshold in `lastMin`.
-- If no solution is found in an iteration, `threshold` is updated to `lastMin` and search restarts.
-- If `lastMin == threshold` after an iteration, no solution exists (search terminates).
-- Each threshold used is appended to the static `IDA.ths` vector for display in the details panel.
+The search is an in-place backtracking DFS to minimize allocation. `IDA` holds a single mutable board (`queens[col] = row`) plus incrementally-maintained row/diagonal conflict-count arrays (`rowCnt`, `d1`, `d2`), allocated once in `run()` and shared across all recursion.
+
+- `threshold` starts at `h(root)` (`initState.h`).
+- `search(g, h, threshold, next)` is bounded DFS: if `f = g + h > threshold` it records the value in `next[0]` (min f above threshold) and prunes; if `h == 0` it returns the goal as a freshly-cloned `Node` (the only allocation on success).
+- Children ("move one queen within its column", n×(n-1) per frame) are enumerated with O(1) incremental heuristic updates and packed into a primitive `long[]` keyed by child `h`, then `Arrays.sort`ed for best-first order — no child `Node` objects or board clones. Each move is applied to the shared arrays, recursed, then undone.
+- After a failed iteration, `threshold` is raised to `next[0]`; if `next[0]` is still `Integer.MAX_VALUE`, the space is exhausted and `run()` returns `null` (no solution).
+- Each threshold used is appended to the static `IDA.thresholds` list for display in the details panel.
 
 ### Global Mutable State
 
-`Project1.goal` and `IDA.ths` are static fields. `IDA.ths` is explicitly cleared at the start of each `Project1.solve()` call. This means only one solve session is valid at a time.
+`Project1.goal` and `IDA.thresholds` are static fields. `IDA.thresholds` is explicitly cleared at the start of each `Project1.solve()` call. This means only one solve session is valid at a time.
 
 ### UI Components
 

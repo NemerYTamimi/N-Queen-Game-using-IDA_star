@@ -1,112 +1,74 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package project1;
 
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Queue;
-import java.util.Vector;
+import java.util.List;
 
 /**
+ * Iterative Deepening A* solver for N-Queens.
  *
- * @author 11700
+ * threshold starts at h(root) and increases to the minimum f-value that
+ * exceeded the previous threshold — the standard IDA* schedule.
  */
 public class IDA {
 
-    Node init_state;
-    int threshold;
-    int lastMin;
-    Vector<Node> path;
-    int n;
-    Node goal;
-    static Vector <String> ths=new Vector<String>();
-    public IDA(Node inNode, int n) {
-        this.init_state = inNode;
-        this.n = n;
-        path=new Vector<Node>();
-        
+    private final Node initState;
 
+    // Threshold used at each iteration; cleared by Project1.solve() before each run.
+    static final List<Integer> thresholds = new ArrayList<>();
+
+    IDA(Node initState) {
+        this.initState = initState;
     }
 
-    public void run() {
-        if (init_state.f == 0) {
-            System.out.println("initial is goal " + init_state.toString());
-            Project1.goal=init_state;
-            
-            return;
+    /**
+     * Returns the goal node, or null if no solution exists.
+     */
+    Node run() {
+        if (initState.h == 0) {
+            return initState;
         }
-        Vector<Node> firstchilds = init_state.nextStates();
-        Collections.sort(firstchilds);
-//                for(int i=0;i<firstchilds.size();i++)
-//                    System.out.println(firstchilds.get(i).printMatrix());
-        Node min = firstchilds.get(0);
-        threshold = min.h;        
+
+        int threshold = initState.h;
         while (true) {
-            lastMin=firstchilds.get(0).h;
-            Node path1 = ida(init_state);
-            if (path1 != null) {
-                path.add(path1);
-                ths.add(String.valueOf(threshold));
-                System.out.println("Threshold= " + threshold);
-                for (int i = 0; i < path.size(); i++) {
-                    System.out.println(path.get(i).toString());
-                    Project1.goal=path.get(i);
-                return;
-                }
-            } else {
-                if(lastMin==threshold)
-                    return;
-                System.out.println("old Threshold= "+threshold);
-                System.out.println("new Threshold= "+lastMin);
-                ths.add(String.valueOf(threshold));
-                threshold=lastMin;
-            }
-        }
+            thresholds.add(threshold);
+            System.out.println("Threshold = " + threshold);
 
+            int[] next = {Integer.MAX_VALUE};
+            Node found = search(initState, threshold, next);
+
+            if (found != null) {
+                System.out.println("Solution found at g=" + found.g);
+                return found;
+            }
+            if (next[0] == Integer.MAX_VALUE) {
+                return null;   // exhausted search space — no solution
+            }
+            threshold = next[0];
+        }
     }
 
-    public Node ida(Node node) {
-        Vector<Node> childs = node.nextStates();
-        //System.out.println(System.nanoTime());
-        Collections.sort(childs);
-       // System.out.println(System.nanoTime());
-        Node path1=null;
-        Node min=childs.get(0);
-        if(lastMin<min.f)
-            lastMin=min.f;
-        for(int i=0;i<childs.size();i++)
-        {
-            if(childs.get(i).h==0)
-            {
-                goal=childs.get(i);
-                return childs.get(i);
-            }
-            if(childs.get(i).f<=threshold)
-                path1=ida(childs.get(i));
-            if(path1!=null)
-                break;
+    /**
+     * DFS bounded by threshold. Populates next[0] with the minimum f that
+     * exceeded the threshold (the next threshold candidate).
+     */
+    private Node search(Node node, int threshold, int[] next) {
+        int f = node.f;
+        if (f > threshold) {
+            if (f < next[0]) next[0] = f;
+            return null;
         }
-        if(path1!=null)
-        {            
-            
-            path.add(path1);
+        if (node.h == 0) {
             return node;
         }
-       
+
+        List<Node> children = node.nextStates();
+        Collections.sort(children);          // best-first within the depth bound
+
+        for (Node child : children) {
+            Node result = search(child, threshold, next);
+            if (result != null) return result;
+        }
         return null;
     }
-
-    private Node minimum(Vector<Node> firstchilds) {
-        Node min = firstchilds.get(0);
-        for (int i = 1; i < firstchilds.size(); i++) {
-            if (firstchilds.get(i).f < min.f) {
-                min = firstchilds.get(i);
-            }
-        }
-        return min;
-    }
-
 }

@@ -1,193 +1,145 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package project1;
 
 import java.util.ArrayList;
-import java.util.Vector;
+import java.util.List;
 
+/**
+ * Board state: queens[col] = row (one queen per column guaranteed).
+ * Heuristic: number of attacking pairs across rows and both diagonals.
+ * Child heuristics are computed with O(1) incremental updates from the parent.
+ */
 public class Node implements Comparable<Node> {
 
-    int[] stateArray;
-    int g;
-    int h;
-    int f;
-    Node parent;
-    int[][] matrix;
-    int n ;
+    final int[] queens;
+    final int g;
+    final int h;
+    final int f;
+    final int n;
 
-    public Node(int state[], Node parent, int n) {
-        this.stateArray = state;
-        this.n=n;
-        this.parent = parent;
-        this.f = calc_cost();
-       
+    Node(int[] queens, int g) {
+        this.queens = queens;
+        this.n = queens.length;
+        this.g = g;
+        this.h = computeH(queens);
+        this.f = g + h;
     }
 
-    public int[] getStateArray() {
-        return stateArray;
+    // Package-private: used by nextStates() for O(1) child heuristic.
+    Node(int[] queens, int g, int h) {
+        this.queens = queens;
+        this.n = queens.length;
+        this.g = g;
+        this.h = h;
+        this.f = g + h;
     }
 
-    public int getPathCost() {
-        return g;
-    }
-
-    public int getHeuristic() {
-        return h;
-    }
-
-    public int getTotalCost() {
-        return f;
-    }
-
-    private int calc_cost() {
-        this.g = calc_pathCost();
-        this.h = calc_heuristic();
-        return calc_totalCost();
-    }
-
-    private int calc_pathCost() {
-        if (this.parent != null) {
-            return (this.parent.getPathCost() + 1);
+    static int computeH(int[] queens) {
+        int n = queens.length;
+        int[] rowCnt = new int[n];
+        int[] d1    = new int[2 * n];   // r + c
+        int[] d2    = new int[2 * n];   // r - c + n
+        for (int c = 0; c < n; c++) {
+            int r = queens[c];
+            rowCnt[r]++;
+            d1[r + c]++;
+            d2[r - c + n]++;
         }
-        return 0;
+        return pairs(rowCnt, d1, d2, n);
     }
 
-    private int calc_heuristic() {
-        this.matrix = toMatrix();
-
+    private static int pairs(int[] rowCnt, int[] d1, int[] d2, int n) {
         int total = 0;
         for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                if (matrix[i][j] == 1) {
-                    total += calc_conflict(matrix, i, j);
-                }
-            }
+            int k = rowCnt[i];
+            if (k > 1) total += k * (k - 1) >> 1;
+        }
+        for (int i = 0; i < 2 * n; i++) {
+            int k = d1[i];
+            if (k > 1) total += k * (k - 1) >> 1;
+            k = d2[i];
+            if (k > 1) total += k * (k - 1) >> 1;
         }
         return total;
     }
 
-    private int calc_totalCost() {
-        return (this.g + this.h);
+    List<Node> nextStates() {
+        // Build conflict-count arrays for this state once — O(n).
+        int[] rowCnt = new int[n];
+        int[] d1    = new int[2 * n];
+        int[] d2    = new int[2 * n];
+        for (int c = 0; c < n; c++) {
+            int r = queens[c];
+            rowCnt[r]++;
+            d1[r + c]++;
+            d2[r - c + n]++;
+        }
+
+        List<Node> children = new ArrayList<>(n * (n - 1));
+        int childG = g + 1;
+
+        for (int col = 0; col < n; col++) {
+            int oldRow = queens[col];
+
+            // Pairs that involve the queen at (col, oldRow).
+            int removedPairs = (rowCnt[oldRow] - 1)
+                             + (d1[oldRow + col] - 1)
+                             + (d2[oldRow - col + n] - 1);
+            int hBase = h - removedPairs;
+
+            // Temporarily remove this queen from the tracking arrays.
+            rowCnt[oldRow]--;
+            d1[oldRow + col]--;
+            d2[oldRow - col + n]--;
+
+            for (int newRow = 0; newRow < n; newRow++) {
+                if (newRow == oldRow) continue;
+
+                // Pairs added by placing queen at (col, newRow).
+                int addedPairs = rowCnt[newRow]
+                               + d1[newRow + col]
+                               + d2[newRow - col + n];
+
+                int[] childQueens = queens.clone();
+                childQueens[col] = newRow;
+                children.add(new Node(childQueens, childG, hBase + addedPairs));
+            }
+
+            // Restore.
+            rowCnt[oldRow]++;
+            d1[oldRow + col]++;
+            d2[oldRow - col + n]++;
+        }
+
+        return children;
     }
 
-    int calc_conflict(int board[][], int row, int col) {
-
-        int total_conflict = 0;
-        // in row
-        int sumRow = -1;
-        for (int i = 0; i < n; i++) {
-            if (board[row][i] == 1) {
-                sumRow++;
-            }
+    int[][] toMatrix() {
+        int[][] m = new int[n][n];
+        for (int c = 0; c < n; c++) {
+            m[queens[c]][c] = 1;
         }
-        // in R to L diagonal 
-        int nodRToL = row + col;
-        int sumRtoL = 0;
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                if (board[i][j] == 1) {
-                    if (!(i == row && j == col)) {
-                        if (nodRToL == (i + j)) {
-                            sumRtoL++;
-                        }
-                    }
-                }
-            }
-        }
-
-        int nodLtoR = (n-row-1) + (col);
-        int sumLtoR = 0;
-        for (int i = 0; i<n; i++) {
-            for (int j = 0; j <n; j++) {
-                if (board[i][j] == 1) {
-                    if (!((n-i-1) == (n-row-1) && j == col)) {
-                        if (nodLtoR == ((n-i-1) + j)) {
-                            sumLtoR++;
-                        }
-                    }
-                }
-            }
-        }
-        total_conflict =sumLtoR+sumRow + sumRtoL;
-
-        return total_conflict;
+        return m;
     }
 
-    public int[][] toMatrix() {
-
-        int[][] matrix = new int[n][n];
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                matrix[i][j] = 0;
+    String printMatrix() {
+        int[][] m = toMatrix();
+        StringBuilder sb = new StringBuilder();
+        for (int[] row : m) {
+            for (int cell : row) {
+                sb.append(' ').append(cell).append(' ');
             }
+            sb.append('\n');
         }
-        for (int i = 0; i < n; i++) {
-            matrix[this.stateArray[i]][i] = 1;
-        }
-        return matrix;
+        return sb.toString();
+    }
+
+    @Override
+    public int compareTo(Node o) {
+        return Integer.compare(this.f, o.f);
     }
 
     @Override
     public String toString() {
-        return "State{ pathCost=" + g + ", heuristic=" + h + ", totalCost=" + f + ", n=" + n + '}' + '\n' + printMatrix();
-
+        return "State{ g=" + g + ", h=" + h + ", f=" + f + ", n=" + n + "}\n" + printMatrix();
     }
-
-    public String printMatrix() {
-        String str = "";
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                str = str + " " + matrix[i][j];
-                str = str + " ";
-            }
-            str += '\n';
-        }
-        return str;
-    }
-
-    public Vector<Node> nextStates() {
-        
-        Node ini_state = new Node(stateArray, this, n);
-        Vector<Node> childs = new Vector<Node>();
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-
-                if (j != stateArray[i]) {
-                    int[] newArray = new int[n];
-                    for (int z = 0; z < n; z++) {
-                        newArray[z] = stateArray[z];
-                    }
-                    newArray[i] = j;
-                    Node newChild = new Node(newArray, ini_state, n);
-                    childs.add(newChild);
-                }
-            }
-        }
-        return childs;
-    }
-
-    
-    public boolean equals(Node node) {
-        if (node.h == this.h) {
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public int compareTo(Node node) {
-        if(node==null)
-            return 0;
-        if (node.f > this.f) {
-            return -1;
-        }
-        if (node.f < this.f) {
-            return 1;
-        }
-        return 0;
-    }
-
 }

@@ -1,121 +1,113 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package project1;
 
-
-import static com.sun.javafx.scene.control.skin.Utils.getResource;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-/**
- *
- * @author nemertamimi
- */
 public class Project1 {
 
-    /**
-     * @param args the command line arguments
-     */
     static Node iniNode;
     public static Node goal;
-    public Project1(){
-        
-    }
+
     public static void main(String[] args) {
-        drowMain();
-        
+        drawMain();
     }
 
-    private static void drow() {
-        GameBoard gb = new GameBoard(goal.n,false);
-        JFrame frame = new JFrame("N Queen Game");
-        JComponent JC = gb.getGui();
-        JPanel main = new JPanel();
-        main.add(JC);
-        JC.setPreferredSize(new Dimension(500, 500));
-        System.out.println(JC.getPreferredSize());
-        main.setSize(JC.getPreferredSize().width + 40, JC.getPreferredSize().height);
-        frame.add(BorderLayout.CENTER,main);
+    public static void solve(int[] initArray) {
+        IDA.thresholds.clear();
 
-        for (int i = 0; i < goal.n; i++) {
-            for (int j = 0; j < goal.n; j++) {
-                if (goal.matrix[i][j] == 1) { 
-                    if(GameBoard.icon1==null)
-                        gb.c1squares[j][i].setBackground(Color.BLACK);
+        iniNode = new Node(initArray, 0);
+        System.out.println(iniNode);
+
+        IDA ida = new IDA(iniNode);
+        goal = ida.run();
+
+        if (goal == null) {
+            System.out.println("No solution found.");
+            javax.swing.JOptionPane.showMessageDialog(null,
+                "No solution found for this initial configuration.");
+            return;
+        }
+
+        drawSolution();
+    }
+
+    public static void details() {
+        if (goal == null) return;
+
+        StringBuilder sb = new StringBuilder();
+        if (goal.g == 0) {
+            sb.append("The initial state is already a goal:\n\n")
+              .append("-------------------------------\n")
+              .append(iniNode.printMatrix())
+              .append("-------------------------------\n\n");
+        } else {
+            sb.append("Initial state:\n\n")
+              .append("-------------------------------\n")
+              .append(iniNode.printMatrix())
+              .append("-------------------------------\n\n")
+              .append("Goal state:\n\n")
+              .append("-------------------------------\n")
+              .append(goal.printMatrix())
+              .append("-------------------------------\n\n");
+        }
+
+        sb.append("Operators: move one queen up or down in its column.\n")
+          .append("Each step counts as 1 unit of path cost.\n\n");
+
+        for (int i = 0; i < IDA.thresholds.size(); i++) {
+            sb.append("Cutoff[").append(i).append("] = ")
+              .append(IDA.thresholds.get(i)).append('\n');
+        }
+
+        if (goal.g != 0) {
+            sb.append("\nTotal path cost (moves): ").append(goal.g).append('\n')
+              .append("The ").append(goal.n)
+              .append(" queens can be placed in ").append(goal.g).append(" move(s).");
+        }
+
+        DetailsFrame detailsFrame = new DetailsFrame(sb.toString());
+        detailsFrame.setVisible(true);
+        detailsFrame.setLocation(300, 100);
+    }
+
+    private static void drawSolution() {
+        int n = goal.n;
+        int[][] matrix = goal.toMatrix();
+
+        GameBoard gb = new GameBoard(n, false);
+        JComponent jc = gb.getGui();
+        jc.setPreferredSize(new Dimension(500, 500));
+
+        for (int row = 0; row < n; row++) {
+            for (int col = 0; col < n; col++) {
+                if (matrix[row][col] == 1) {
+                    if (GameBoard.icon1 == null)
+                        gb.c1squares[col][row].setBackground(Color.BLACK);
                     else
-                        gb.c1squares[j][i].setIcon(GameBoard.icon1);
+                        gb.c1squares[col][row].setIcon(GameBoard.icon1);
                 }
             }
         }
 
-        frame.setLocationByPlatform(true);
-        frame.setMinimumSize(frame.getSize());
-        frame.setDefaultCloseOperation(frame.DISPOSE_ON_CLOSE);
-        frame.setPreferredSize(new Dimension(main.getPreferredSize().width, main.getPreferredSize().height));
+        JPanel main = new JPanel();
+        main.add(jc);
+
+        JFrame frame = new JFrame("N Queen Solution");
+        frame.add(BorderLayout.CENTER, main);
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setMinimumSize(new Dimension(550, 550));
-        frame.setLocation(330,100);
+        frame.setLocation(330, 100);
         frame.pack();
         frame.setVisible(true);
-
-        main.setLayout(new BorderLayout(40,40) );
-
     }
 
-    private static void drowMain() {
-        MainFrame frame =new MainFrame();
+    private static void drawMain() {
+        MainFrame frame = new MainFrame();
         frame.setVisible(true);
-        frame.setLocation(400,100);
-        
-        
+        frame.setLocation(400, 100);
     }
-    public static void solve(int [] initArray){
-        IDA.ths.clear();
-        
-        iniNode = new Node(initArray, null, initArray.length);
-        System.out.println(iniNode.toString());
-        IDA ida = new IDA(iniNode, initArray.length);
-        ida.run();
-
-
-        drow();
-    }
-    public static void details(){
-        String Details ="";
-        if(goal.g==0)
-            Details+="the initial state is goal \n\n-------------------------------\n"+iniNode.printMatrix()+"------------------------------\n\n";
-        else
-        {
-            Details+="the initial state is \n\n-------------------------------\n"+iniNode.printMatrix()+"------------------------------\n\n";
-            Details+="the Goal state is \n\n-------------------------------\n"+goal.printMatrix()+"------------------------------\n\n";
-
-        }
-        Details+="\nOperators: next states generated \nby moving one queen up or down in \nthe column also number of steps \nthat the queen move considered\n as a unit in the cost.\n\n";
-        for (int i=0;i<IDA.ths.size();i++)
-            Details+="Cutoff["+i+"]= "+IDA.ths.get(i)+"\n";
-        if(goal.g!=0)
-        {
-            Details+="Total Path Cost from initial to goal="+goal.g+"\n";
-            Details+="\nThat means the solution can be done by \n\tmoving the "+goal.n+" queens "+goal.g+" moves.";
-            
-        }
-
-        DetailsFrame detailsFrame=new DetailsFrame(Details);
-        detailsFrame.setVisible(true);
-        detailsFrame.setLocation(300,100);
-    }
-    
 }

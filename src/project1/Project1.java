@@ -23,7 +23,15 @@ public class Project1 {
         System.out.println(iniNode);
 
         IDA ida = new IDA(iniNode);
+
+        // Benchmark the search: wall-clock time and bytes allocated on this thread.
+        long memBefore = allocatedBytes();
+        long t0 = System.nanoTime();
         goal = ida.run();
+        long elapsedNanos = System.nanoTime() - t0;
+        long memAfter = allocatedBytes();
+        long bytesAllocated =
+            (memBefore < 0 || memAfter < 0) ? -1 : memAfter - memBefore;
 
         if (goal == null) {
             System.out.println("No solution found.");
@@ -33,6 +41,41 @@ public class Project1 {
         }
 
         drawSolution();
+        drawBenchmark(ida, elapsedNanos, bytesAllocated);
+    }
+
+    /**
+     * Bytes allocated by the current thread so far, or -1 if the JVM does not
+     * support per-thread allocation tracking.
+     */
+    private static long allocatedBytes() {
+        try {
+            java.lang.management.ThreadMXBean bean =
+                java.lang.management.ManagementFactory.getThreadMXBean();
+            if (bean instanceof com.sun.management.ThreadMXBean) {
+                com.sun.management.ThreadMXBean sun = (com.sun.management.ThreadMXBean) bean;
+                if (sun.isThreadAllocatedMemorySupported()) {
+                    return sun.getThreadAllocatedBytes(Thread.currentThread().getId());
+                }
+            }
+        } catch (Throwable ignore) {
+            // fall through to unsupported
+        }
+        return -1;
+    }
+
+    private static void drawBenchmark(IDA ida, long elapsedNanos, long bytesAllocated) {
+        BenchmarkFrame bf = new BenchmarkFrame(
+            goal.n,
+            elapsedNanos,
+            bytesAllocated,
+            ida.nodesExpanded,
+            ida.nodesGenerated,
+            IDA.thresholds.size(),
+            goal.g,
+            IDA.thresholds);
+        bf.setLocation(880, 120);
+        bf.setVisible(true);
     }
 
     public static void details() {

@@ -31,6 +31,11 @@ public class IDA {
     private int[] d2;       // queens per "\" diagonal, indexed r - c + n
     private int n;
 
+    // Benchmark counters for the most recent run(): parents whose children were
+    // generated, and the total number of child states produced.
+    long nodesExpanded = 0;
+    long nodesGenerated = 0;
+
     IDA(Node initState) {
         this.initState = initState;
     }
@@ -89,6 +94,7 @@ public class IDA {
             return new Node(queens.clone(), g, 0);   // single allocation, only on success
         }
 
+        nodesExpanded++;
         // Enumerate every "move one queen within its column" child, computing its
         // heuristic by O(1) incremental update. Pack (childH, move) into a long so
         // the candidates sort best-first without boxing or building Node objects.
@@ -111,6 +117,7 @@ public class IDA {
             }
             rowCnt[oldRow]++; d1[oldRow + col]++; d2[oldRow - col + n]++;
         }
+        nodesGenerated += moves.length;
         Arrays.sort(moves);   // ascending childH, i.e. best-first within the depth bound
 
         int childG = g + 1;

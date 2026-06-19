@@ -39,8 +39,8 @@ java -jar dist/project1_1.jar
 ### Core Data Flow
 
 1. **`MainFrame`** — Swing GUI entry point. User enters board size (minimum 4), clicks "Initialize Board" to interactively place queens on a `GameBoard`, then clicks "Solve".
-2. **`Project1.solve(int[] initArray)`** — Called by the UI. Creates the initial `Node`, runs `IDA`, then opens a result `GameBoard` window displaying the solution. Holds the static global `Project1.goal` (the solved `Node`).
-3. **`IDA`** — Runs the search. On completion, `Project1.goal` holds the goal node and `IDA.ths` holds the list of threshold values used.
+2. **`Project1.solve(int[] initArray)`** — Called by the UI. Creates the initial `Node`, runs `IDA` (timing the search and recording bytes allocated on the calling thread), then opens **two** windows: a result `GameBoard` displaying the solution and a `BenchmarkFrame` reporting the measured cost. Holds the static global `Project1.goal` (the solved `Node`).
+3. **`IDA`** — Runs the search. On completion, `Project1.goal` holds the goal node, `IDA.thresholds` holds the list of threshold values used, and `IDA.nodesExpanded` / `IDA.nodesGenerated` hold the search-work counters used by the benchmark.
 4. **`Project1.details()`** — Called by the "Details" button; opens a `DetailsFrame` showing the initial/goal board states, cutoff thresholds, and total path cost.
 
 ### State Representation
@@ -72,6 +72,7 @@ The search is an in-place backtracking DFS to minimize allocation. `IDA` holds a
 
 - **`GameBoard`** — Renders an n×n grid of `JButton`s (`c1squares[col][row]`). When `f=true` (initialization mode), buttons are clickable to toggle queen placement (highlighted in `Color.lightGray`). When `f=false` (display mode), the solved queen positions are set programmatically by the caller.
 - **`MainFrame.form` / `DetailsFrame.form`** — NetBeans GUI Builder `.form` files. The corresponding `initComponents()` methods in the `.java` files are auto-generated; do not manually edit those sections (marked with `//GEN-BEGIN` / `//GEN-END` comments).
+- **`BenchmarkFrame`** — Hand-written Swing window (no `.form`) opened next to the solution board after each solve. Shows the measured solve time, bytes allocated, nodes expanded/generated, IDA* iterations, and path cost, plus the algorithm's time/space complexity. Since it is hand-coded, edit it freely.
 
 ### Image Assets
 
